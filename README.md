@@ -3,6 +3,102 @@
 
 A comprehensive GUI application for analyzing Egyptian high school student results with Arabic numeral support.
 
+
+## Screenshots / لقطات الشاشة
+
+The application provides a comprehensive visual interface for analyzing Egyptian high school results:
+
+### Main Interface / الواجهة الرئيسية
+<table>
+<tr>
+<td width="50%">
+
+![Main Application Interface](image.png)
+
+**Features shown:**
+- Clean, intuitive GUI layout
+- File selection and loading area
+- Statistical summary panel
+- Analysis control buttons
+- Arabic text support
+
+</td>
+<td width="50%">
+
+![Data Loading and Statistics](image-1.png)
+
+**Key elements:**
+- CSV file browser integration
+- Real-time data validation
+- Comprehensive statistics display
+- Student count and score metrics
+- Mean, median, and distribution data
+
+</td>
+</tr>
+</table>
+
+### Analysis Visualizations / المخططات التحليلية
+<table>
+<tr>
+<td width="33%">
+
+![Grade Distribution Chart](image-2.png)
+
+**Grade Distribution Analysis:**
+- Histogram showing score frequency
+- Normal distribution curve overlay
+- Clear grade ranges and bins
+- Statistical markers (mean, median)
+- Color-coded visualization
+
+</td>
+<td width="33%">
+
+![Box Plot Analysis](image-3.png)
+
+**Box Plot Statistics:**
+- Quartile distribution (Q1, Q2, Q3)
+- Outlier detection and marking
+- Median line highlighting
+- Whiskers showing data range
+- Statistical summary visualization
+
+</td>
+<td width="33%">
+
+![University Thresholds](image-4.png)
+
+**University Admission Analysis:**
+- Threshold lines for each faculty
+- Student distribution by admission level
+- Medicine, Pharmacy, Engineering cuts
+- Commerce and Arts requirements
+- Eligibility percentage calculations
+
+</td>
+</tr>
+</table>
+
+### Detailed Features / المميزات التفصيلية
+
+**Interface Components:**
+- **File Management**: Easy CSV file selection with format validation
+- **Statistics Panel**: Real-time calculation of key metrics including mean (المتوسط), median (الوسيط), and standard deviation (الانحراف المعياري)
+- **Visualization Controls**: One-click generation of multiple chart types
+- **Export Functionality**: High-quality PNG output and comprehensive reports
+
+**Analysis Capabilities:**
+- **Distribution Analysis**: Detailed histogram with statistical overlays showing how grades are distributed across the student population
+- **Quartile Analysis**: Box plot visualization revealing data spread, outliers, and quartile boundaries
+- **Threshold Evaluation**: University admission analysis with clear cutoff lines for different faculties
+- **Performance Tracking**: Top student identification and ranking system
+
+**Arabic Support Features:**
+- Full RTL (Right-to-Left) text rendering
+- Arabic numeral conversion (٠١٢٣٤٥٦٧٨٩ → 0123456789)
+- Bilingual interface labels
+- UTF-8 encoding support for Arabic names and data
 ## Features / المميزات
 
 - **GUI Interface**: User-friendly graphical interface with Arabic support

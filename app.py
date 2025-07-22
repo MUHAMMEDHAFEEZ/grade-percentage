@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 import io
+import os
 from datetime import datetime
 import base64
 
@@ -25,13 +26,135 @@ st.set_page_config(
 
 class StreamlitGradeAnalyzer:
     def __init__(self):
-        self.thresholds = {
-            'Medicine': 404,
-            'Pharmacy': 397, 
-            'Engineering': 382,
-            'Commerce': 340,
-            'Arts': 305
+        # System-specific configurations
+        self.system_configs = {
+            'new_system': {
+                'name': 'النظام الجديد (New System)',
+                'name_en': 'New System',
+                'total_score': 320,
+                'years': [2025, 2024],
+                'default_year': 2025,
+                'thresholds': {
+                    2025: {
+                        'Medicine': 315,      # طب
+                        'Pharmacy': 310,      # صيدلة  
+                        'Engineering': 298,   # هندسة
+                        'Commerce': 265,      # تجارة
+                        'Arts': 238           # آداب
+                    },
+                    2024: {
+                        'Medicine': 312,
+                        'Pharmacy': 307,
+                        'Engineering': 295,
+                        'Commerce': 262,
+                        'Arts': 235
+                    }
+                },
+                'ranges': [(0, 150), (150, 200), (200, 240), (240, 270), (270, 300), (300, 315), (315, 320)],
+                'grade_categories': {
+                    'ممتاز': (300, 320),
+                    'جيد جداً': (270, 300),
+                    'جيد': (240, 270),
+                    'مقبول': (200, 240),
+                    'ضعيف': (0, 200)
+                }
+            },
+            'old_system': {
+                'name': 'النظام القديم (Old System)',
+                'name_en': 'Old System',
+                'total_score': 410,
+                'years': [2023, 2022, 2021, 2020],
+                'default_year': 2023,
+                'thresholds': {
+                    2023: {
+                        'Medicine': 404,
+                        'Pharmacy': 397,
+                        'Engineering': 382,
+                        'Commerce': 340,
+                        'Arts': 305
+                    },
+                    2022: {
+                        'Medicine': 401,
+                        'Pharmacy': 394,
+                        'Engineering': 379,
+                        'Commerce': 337,
+                        'Arts': 302
+                    },
+                    2021: {
+                        'Medicine': 398,
+                        'Pharmacy': 391,
+                        'Engineering': 376,
+                        'Commerce': 334,
+                        'Arts': 299
+                    },
+                    2020: {
+                        'Medicine': 395,
+                        'Pharmacy': 388,
+                        'Engineering': 373,
+                        'Commerce': 331,
+                        'Arts': 296
+                    }
+                },
+                'ranges': [(0, 200), (200, 250), (250, 300), (300, 350), (350, 380), (380, 400), (400, 410)],
+                'grade_categories': {
+                    'ممتاز': (380, 410),
+                    'جيد جداً': (340, 380),
+                    'جيد': (300, 340),
+                    'مقبول': (250, 300),
+                    'ضعيف': (0, 250)
+                }
+            }
         }
+        
+        # Default settings (New System)
+        self.current_system = 'new_system'
+        self.current_year = self.system_configs[self.current_system]['default_year']
+        self.update_current_settings()
+    
+    def update_current_settings(self):
+        """Update current settings based on selected system and year"""
+        config = self.system_configs[self.current_system]
+        self.total_score = config['total_score']
+        self.thresholds = config['thresholds'][self.current_year]
+        self.ranges = config['ranges']
+        self.grade_categories = config['grade_categories']
+        self.system_name = config['name']
+        self.system_name_en = config['name_en']
+    
+    def set_system(self, system):
+        """Set the education system (new or old)"""
+        if system in self.system_configs:
+            self.current_system = system
+            self.current_year = self.system_configs[system]['default_year']
+            self.update_current_settings()
+            return True
+        return False
+    
+    def set_year(self, year):
+        """Set the analysis year within current system"""
+        if year in self.system_configs[self.current_system]['years']:
+            self.current_year = year
+            self.update_current_settings()
+            return True
+        return False
+    
+    def get_available_systems(self):
+        """Get list of available education systems"""
+        return [
+            {'key': 'new_system', 'name': 'النظام الجديد (320 درجة)', 'name_en': 'New System (320)'},
+            {'key': 'old_system', 'name': 'النظام القديم (410 درجة)', 'name_en': 'Old System (410)'}
+        ]
+    
+    def get_available_years(self):
+        """Get list of available years for current system"""
+        return sorted(self.system_configs[self.current_system]['years'], reverse=True)
+    
+    def get_grade_category(self, score):
+        """Get grade category for a score"""
+        for category, (min_score, max_score) in self.grade_categories.items():
+            if min_score <= score < max_score:
+                return category
+        return 'غير محدد'
         
     def convert_arabic_numerals(self, text):
         """Convert Arabic numerals to English numerals"""
@@ -128,6 +251,51 @@ class StreamlitGradeAnalyzer:
             return pd.DataFrame()
         
         return df.nlargest(n, 'total_degree')[['seating_no', 'arabic_name', 'total_degree']]
+    
+    def search_student_by_id(self, df, student_id):
+        """Search for a student by their seating number (National ID)"""
+        if df is None:
+            return None, "No data loaded"
+        
+        # Convert student_id to string for comparison
+        student_id_str = str(student_id).strip()
+        
+        # Search for the student
+        student_row = df[df['seating_no'].astype(str) == student_id_str]
+        
+        if student_row.empty:
+            return None, f"Student with ID {student_id} not found"
+        
+        student_data = student_row.iloc[0]
+        
+        # Calculate rank
+        rank = len(df[df['total_degree'] > student_data['total_degree']]) + 1
+        total_students = len(df)
+        percentile = ((total_students - rank) / total_students) * 100
+        
+        # Check available universities
+        available_unis = []
+        for field, threshold in self.thresholds.items():
+            if student_data['total_degree'] >= threshold:
+                available_unis.append(field)
+        
+        # Get grade category
+        grade_category = self.get_grade_category(student_data['total_degree'])
+        
+        result = {
+            'seating_no': student_data['seating_no'],
+            'name': student_data['arabic_name'],
+            'total_degree': student_data['total_degree'],
+            'rank': rank,
+            'total_students': total_students,
+            'percentile': percentile,
+            'available_universities': available_unis,
+            'grade_category': grade_category,
+            'system': self.system_name,
+            'year': self.current_year
+        }
+        
+        return result, "Student found successfully"
 
 def create_distribution_plot(df, stats, thresholds):
     """Create interactive distribution plot using Plotly"""
@@ -281,29 +449,136 @@ def create_threshold_analysis_plot(threshold_counts):
 def main():
     """Main Streamlit application"""
     
-    # Title and description
-    st.title("🎓 Egyptian High School Results Analyzer")
-    st.markdown("### محلل نتائج الثانوية العامة المصرية")
-    st.markdown("---")
-    
     # Initialize analyzer
     analyzer = StreamlitGradeAnalyzer()
     
-    # Sidebar for file upload and controls
+    # Title and description
+    st.title("🎓 Egyptian High School Results Analyzer")
+    st.markdown("### محلل نتائج الثانوية العامة المصرية")
+    
+    # Display current system and year info
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+    with col1:
+        st.markdown(f"**🎓 Education System**: {analyzer.system_name}")
+    with col2:
+        st.markdown(f"**📅 Year**: {analyzer.current_year}")
+    with col3:
+        st.markdown(f"**📊 Total Score**: {analyzer.total_score}")
+    with col4:
+        system_emoji = "🆕" if analyzer.current_system == 'new_system' else "📚"
+        st.markdown(f"**{system_emoji} Type**: {'New' if analyzer.current_system == 'new_system' else 'Old'}")
+    
+    # Auto-data loading info with system-specific message
+    if analyzer.current_system == 'new_system':
+        st.info("🆕 **النظام الجديد محمل!** Ready to analyze new system results (320 total). Search immediately!")
+    else:
+        st.info("📚 **النظام القديم محمل!** Ready to analyze old system results (410 total). Search immediately!")
+    
+    st.markdown("---")
+    
+    # Sidebar for system selection and file upload
+    st.sidebar.header("⚙️ System Settings - إعدادات النظام")
+    
+    # Education System selection
+    st.sidebar.markdown("### 🎓 Education System - نظام التعليم")
+    available_systems = analyzer.get_available_systems()
+    
+    # Create system selection
+    system_options = [sys['name'] for sys in available_systems]
+    system_keys = [sys['key'] for sys in available_systems]
+    
+    current_system_index = system_keys.index(analyzer.current_system)
+    selected_system_name = st.sidebar.selectbox(
+        "Choose Education System",
+        options=system_options,
+        index=current_system_index,
+        help="اختر نظام التعليم (جديد أم قديم)"
+    )
+    
+    # Get selected system key
+    selected_system_key = system_keys[system_options.index(selected_system_name)]
+    
+    # Update analyzer with selected system
+    if analyzer.set_system(selected_system_key):
+        if selected_system_key == 'new_system':
+            st.sidebar.success(f"🆕 النظام الجديد - {analyzer.total_score} درجة")
+        else:
+            st.sidebar.info(f"� النظام القديم - {analyzer.total_score} درجة")
+    
+    # Year selection within the chosen system
+    st.sidebar.markdown("### 📅 Academic Year - السنة الدراسية")
+    available_years = analyzer.get_available_years()
+    selected_year = st.sidebar.selectbox(
+        "Select Academic Year",
+        options=available_years,
+        index=0,  # Default to most recent year
+        help="اختر السنة الدراسية"
+    )
+    
+    # Update analyzer with selected year
+    if analyzer.set_year(selected_year):
+        st.sidebar.success(f"📊 Using {selected_year} thresholds")
+    
+    st.sidebar.markdown("---")
     st.sidebar.header("📁 File Upload - تحميل الملف")
     
     uploaded_file = st.sidebar.file_uploader(
-        "Choose a CSV file",
+        "Choose a CSV file (Optional - ملف اختياري)",
         type=['csv'],
-        help="Upload your Egyptian high school results CSV file"
+        help="Upload your Egyptian high school results CSV file or use default data"
     )
     
+    # Auto-load default data if no file uploaded
+    df = None
+    success = False
+    message = ""
+    
     if uploaded_file is not None:
-        # Load and process data
-        with st.spinner('Loading and processing data... جاري تحميل وتجهيز البيانات...'):
+        # Load and process uploaded data
+        with st.spinner('Loading uploaded file... جاري تحميل الملف المرفوع...'):
             df, success, message = analyzer.load_csv(uploaded_file)
-        
-        if success:
+    else:
+        # Try to load default results.csv file
+        try:
+            with st.spinner('Loading default data... جاري تحميل البيانات الافتراضية...'):
+                default_file_path = "results.csv"
+                if os.path.exists(default_file_path):
+                    # Read the default CSV file
+                    for delimiter in [',', '\t', ';']:
+                        try:
+                            df = pd.read_csv(default_file_path, delimiter=delimiter, encoding='utf-8')
+                            if len(df.columns) >= 3:
+                                break
+                        except:
+                            continue
+                    else:
+                        df = pd.read_csv(default_file_path, encoding='utf-8')
+                    
+                    # Process the data same as uploaded files
+                    if 'total_degree' in df.columns:
+                        df['total_degree'] = df['total_degree'].apply(analyzer.convert_arabic_numerals)
+                        df['total_degree'] = pd.to_numeric(df['total_degree'], errors='coerce')
+                        
+                        initial_count = len(df)
+                        df = df.dropna(subset=['total_degree'])
+                        df = df[df['total_degree'] > 0]
+                        
+                        if len(df) < initial_count:
+                            st.sidebar.warning(f"Removed {initial_count - len(df)} invalid records")
+                    
+                    success = True
+                    message = f"✅ Default data loaded: {len(df):,} student records"
+                    st.sidebar.success("📊 Using default dataset")
+                else:
+                    success = False
+                    message = "❌ Default results.csv file not found. Please upload a CSV file."
+                    st.sidebar.error("📁 No default data available")
+        except Exception as e:
+            success = False
+            message = f"❌ Error loading default data: {str(e)}"
+            st.sidebar.error("❌ Error loading default data")
+    
+    if success and df is not None:
             st.success(message)
             
             # Calculate statistics
@@ -318,8 +593,32 @@ def main():
             st.sidebar.metric("Highest Score", f"{stats['max']:.1f}")
             st.sidebar.metric("Lowest Score", f"{stats['min']:.1f}")
             
+            # Quick student search in sidebar
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("### 🔍 Quick Student Search")
+            sidebar_student_id = st.sidebar.text_input(
+                "Student ID",
+                placeholder="e.g., 1001660",
+                key="sidebar_search"
+            )
+            
+            if st.sidebar.button("Search Student", key="sidebar_search_btn"):
+                if sidebar_student_id:
+                    student_data, message = analyzer.search_student_by_id(df, sidebar_student_id)
+                    if student_data:
+                        st.sidebar.success("✅ Student Found!")
+                        st.sidebar.markdown(f"**Name:** {student_data['name'][:20]}...")
+                        st.sidebar.markdown(f"**Score:** {student_data['total_degree']:.1f}")
+                        st.sidebar.markdown(f"**Rank:** {student_data['rank']:,}")
+                        if student_data['available_universities']:
+                            st.sidebar.markdown(f"**Universities:** {len(student_data['available_universities'])}")
+                        st.sidebar.info("👆 Check the 'Student Search' tab for full details")
+                    else:
+                        st.sidebar.error("❌ Student not found")
+            
             # Main content tabs
-            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+                "🔍 Student Search", 
                 "📈 Distribution Analysis", 
                 "🏆 Top Students", 
                 "🎯 University Thresholds",
@@ -328,6 +627,196 @@ def main():
             ])
             
             with tab1:
+                st.subheader("🔍 Student Search - البحث عن طالب")
+                st.markdown("#### Search by Seating Number - البحث برقم الجلوس")
+                
+                # Welcome message
+                if uploaded_file is None:
+                    st.success(f"✅ **Ready!** {len(df):,} student records loaded automatically. Enter a student ID below to search!")
+                else:
+                    st.info(f"📊 Using uploaded data: {len(df):,} student records")
+                
+                # Student search input
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    student_id = st.text_input(
+                        "Enter Student ID (Seating Number)",
+                        placeholder="Example: 1001660",
+                        help="Enter the student's seating number to view their results"
+                    )
+                with col2:
+                    search_button = st.button("🔍 Search", type="primary")
+                
+                if search_button and student_id:
+                    student_data, message = analyzer.search_student_by_id(df, student_id)
+                    
+                    if student_data:
+                        # Display student information
+                        st.success("✅ Student Found!")
+                        
+                        # Student details card
+                        with st.container():
+                            st.markdown("### 👤 Student Information - معلومات الطالب")
+                            
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.markdown(f"""
+                                **🆔 Student ID:** {student_data['seating_no']}
+                                
+                                **👤 Name:** {student_data['name']}
+                                
+                                **📊 Total Score:** {student_data['total_degree']:.1f} / {analyzer.total_score}
+                                """)
+                            
+                            with col2:
+                                st.markdown(f"""
+                                **🏆 Rank:** {student_data['rank']:,} out of {student_data['total_students']:,}
+                                
+                                **📈 Percentile:** Top {100-student_data['percentile']:.1f}%
+                                
+                                **📊 Better than:** {student_data['percentile']:.1f}% of students
+                                """)
+                            
+                            with col3:
+                                grade_emoji = "🌟" if student_data['grade_category'] == "ممتاز" else "📈" if student_data['grade_category'] == "جيد جداً" else "📊" if student_data['grade_category'] == "جيد" else "📋" if student_data['grade_category'] == "مقبول" else "📉"
+                                system_emoji = "🆕" if analyzer.current_system == 'new_system' else "📚"
+                                st.markdown(f"""
+                                **{grade_emoji} Grade Category:** {student_data['grade_category']}
+                                
+                                **{system_emoji} System:** {student_data['system']}
+                                
+                                **📅 Year:** {student_data['year']}
+                                """)
+                        
+                        # Performance visualization
+                        st.markdown("### 📊 Performance Analysis - تحليل الأداء")
+                        
+                        # Create performance chart
+                        performance_data = {
+                            'Metric': ['Your Score', 'Class Average', 'Top Student', 'Minimum Score'],
+                            'Value': [
+                                student_data['total_degree'],
+                                stats['mean'],
+                                stats['max'],
+                                stats['min']
+                            ],
+                            'Color': ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
+                        }
+                        
+                        performance_df = pd.DataFrame(performance_data)
+                        fig_performance = px.bar(
+                            performance_df,
+                            x='Metric',
+                            y='Value',
+                            color='Color',
+                            title=f"Performance Comparison for {student_data['name']}"
+                        )
+                        fig_performance.update_layout(showlegend=False, height=400)
+                        st.plotly_chart(fig_performance, use_container_width=True)
+                        
+                        # Available universities
+                        st.markdown("### 🎓 Available Universities - الجامعات المتاحة")
+                        
+                        if student_data['available_universities']:
+                            st.success(f"🎉 Congratulations! You qualify for {len(student_data['available_universities'])} university programs:")
+                            
+                            for i, uni in enumerate(student_data['available_universities'], 1):
+                                threshold = analyzer.thresholds[uni]
+                                excess_points = student_data['total_degree'] - threshold
+                                
+                                # University info with styling
+                                with st.container():
+                                    col1, col2, col3 = st.columns([2, 1, 1])
+                                    with col1:
+                                        st.markdown(f"**{i}. {uni}** 🏛️")
+                                    with col2:
+                                        st.markdown(f"**Required:** {threshold}")
+                                    with col3:
+                                        st.markdown(f"**Excess:** +{excess_points:.1f}")
+                                
+                                # Progress bar showing how much above threshold
+                                progress = min(excess_points / 20, 1.0)  # Max 20 points excess for full bar
+                                st.progress(progress)
+                                st.markdown("---")
+                        else:
+                            st.warning("📚 Unfortunately, your score doesn't meet the minimum requirements for the tracked university programs.")
+                            st.markdown("**However, there might be other opportunities:**")
+                            st.markdown("- Private universities with different requirements")
+                            st.markdown("- Technical institutes and colleges")
+                            st.markdown("- Alternative educational paths")
+                        
+                        # Improvement suggestions
+                        if student_data['available_universities']:
+                            next_target = None
+                            for field, threshold in analyzer.thresholds.items():
+                                if field not in student_data['available_universities']:
+                                    if next_target is None or threshold < analyzer.thresholds[next_target]:
+                                        next_target = field
+                            
+                            if next_target:
+                                points_needed = analyzer.thresholds[next_target] - student_data['total_degree']
+                                st.info(f"💡 **Next Goal:** To qualify for {next_target}, you would need {points_needed:.1f} more points!")
+                        
+                        # Position in grade distribution
+                        st.markdown("### 📍 Your Position in Grade Distribution - موقعك في توزيع الدرجات")
+                        
+                        # Create distribution plot with student position
+                        fig_dist = go.Figure()
+                        
+                        # Add histogram of all scores
+                        fig_dist.add_trace(go.Histogram(
+                            x=df['total_degree'],
+                            nbinsx=50,
+                            name='All Students',
+                            opacity=0.7,
+                            marker_color='lightblue'
+                        ))
+                        
+                        # Add vertical line for student score
+                        fig_dist.add_vline(
+                            x=student_data['total_degree'],
+                            line_dash="dash",
+                            line_color="red",
+                            line_width=3,
+                            annotation_text=f"Your Score: {student_data['total_degree']:.1f}"
+                        )
+                        
+                        # Add university thresholds
+                        colors = ['green', 'orange', 'purple', 'blue', 'brown']
+                        for i, (field, threshold) in enumerate(analyzer.thresholds.items()):
+                            fig_dist.add_vline(
+                                x=threshold,
+                                line_dash="dot",
+                                line_color=colors[i % len(colors)],
+                                annotation_text=f"{field}: {threshold}"
+                            )
+                        
+                        fig_dist.update_layout(
+                            title="Your Position in Grade Distribution",
+                            xaxis_title="Total Degree",
+                            yaxis_title="Number of Students",
+                            height=400
+                        )
+                        
+                        st.plotly_chart(fig_dist, use_container_width=True)
+                        
+                    else:
+                        st.error(f"❌ {message}")
+                        st.info("💡 Please check the Student ID and try again. Make sure to enter the exact seating number.")
+                
+                elif search_button and not student_id:
+                    st.warning("⚠️ Please enter a Student ID to search.")
+                
+                # Quick search examples
+                st.markdown("### 💡 Quick Search Examples")
+                st.markdown("""
+                Try searching for these student IDs to see the feature in action:
+                - **1001660** - محمد ابو الحسن حسن مصطفى (163.5)
+                - **1001670** - محمد مختار محمد محمد عبد الموجود (288.0)
+                - **1001677** - ملك كمال محمود محمد (250.5)
+                """)
+            
+            with tab2:
                 st.subheader("Grade Distribution Analysis - تحليل توزيع الدرجات")
                 
                 # Interactive plot
@@ -345,7 +834,7 @@ def main():
                 with col4:
                     st.metric("Range", f"{stats['max']:.1f} - {stats['min']:.1f}")
             
-            with tab2:
+            with tab3:
                 st.subheader("Top Students - أفضل الطلاب")
                 
                 # Number of top students to show
@@ -361,7 +850,7 @@ def main():
                     st.subheader("Top Students Table")
                     st.dataframe(top_n, use_container_width=True)
             
-            with tab3:
+            with tab4:
                 st.subheader("University Threshold Analysis - تحليل حدود القبول الجامعي")
                 
                 # Interactive plot
@@ -381,7 +870,7 @@ def main():
                         st.metric("Threshold", f"≥{data['threshold']}")
                     st.markdown("---")
             
-            with tab4:
+            with tab5:
                 st.subheader("Comprehensive Statistics - الإحصائيات الشاملة")
                 
                 # Basic statistics
@@ -405,8 +894,8 @@ def main():
                     """)
                 
                 # Grade distribution by ranges
-                st.markdown("#### Grade Distribution by Ranges")
-                ranges = [(0, 200), (200, 250), (250, 300), (300, 350), (350, 380), (380, 400), (400, 410)]
+                st.markdown(f"#### Grade Distribution by Ranges (out of {analyzer.total_score})")
+                ranges = analyzer.ranges
                 range_data = []
                 
                 for start, end in ranges:
@@ -421,7 +910,7 @@ def main():
                 range_df = pd.DataFrame(range_data)
                 st.dataframe(range_df, use_container_width=True)
             
-            with tab5:
+            with tab6:
                 st.subheader("Export Data - تصدير البيانات")
                 
                 # Generate comprehensive report
@@ -489,13 +978,13 @@ UNIVERSITY ADMISSION ANALYSIS:
                             file_name="processed_results.csv",
                             mime="text/csv"
                         )
-        
-        else:
-            st.error(message)
     
     else:
-        # Instructions when no file is uploaded
-        st.info("👆 Please upload a CSV file using the sidebar to begin analysis")
+        # Display error message if data loading failed
+        st.error(message)
+        
+        # Instructions when no data is available
+        st.info("👆 Please upload a CSV file using the sidebar or ensure results.csv exists")
         
         st.markdown("""
         ### How to Use - كيفية الاستخدام
@@ -512,12 +1001,14 @@ UNIVERSITY ADMISSION ANALYSIS:
         - `arabic_name`: Student's Arabic name
         - `total_degree`: Total score (supports Arabic numerals like ٣٨٢٫٥)
         
-        ### University Thresholds - حدود القبول الجامعي
-        - **Medicine (طب)**: 404 degrees
-        - **Pharmacy (صيدلة)**: 397 degrees
-        - **Engineering (هندسة)**: 382 degrees
-        - **Commerce (تجارة)**: 340 degrees
-        - **Arts (آداب)**: 305 degrees
+        ### University Thresholds - حدود القبول الجامعي (2025)
+        - **Medicine (طب)**: 315 degrees
+        - **Pharmacy (صيدلة)**: 310 degrees
+        - **Engineering (هندسة)**: 298 degrees
+        - **Commerce (تجارة)**: 265 degrees
+        - **Arts (آداب)**: 238 degrees
+        
+        **Note**: Select different academic years from the sidebar to see historical thresholds.
         """)
 
 if __name__ == "__main__":

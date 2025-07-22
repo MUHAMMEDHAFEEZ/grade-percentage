@@ -86,18 +86,66 @@ def load_and_process_data(file_path="results.csv"):
         print(f"❌ Error loading file: {e}")
         return None
 
+def search_student_by_id(df, student_id, thresholds):
+    """Search for a student by their seating number and show detailed info"""
+    # Convert student_id to string for comparison
+    student_id_str = str(student_id).strip()
+    
+    # Search for the student
+    student_row = df[df['seating_no'].astype(str) == student_id_str]
+    
+    if student_row.empty:
+        print(f"❌ Student with ID {student_id} not found")
+        return False
+    
+    student_data = student_row.iloc[0]
+    
+    # Calculate rank
+    rank = len(df[df['total_degree'] > student_data['total_degree']]) + 1
+    total_students = len(df)
+    percentile = ((total_students - rank) / total_students) * 100
+    
+    # Check available universities
+    available_unis = []
+    for field, threshold in thresholds.items():
+        if student_data['total_degree'] >= threshold:
+            available_unis.append((field, threshold))
+    
+    print(f"\n🔍 STUDENT SEARCH RESULTS - نتائج البحث عن الطالب")
+    print("="*70)
+    print(f"👤 Student Name: {student_data['arabic_name']}")
+    print(f"🆔 Student ID: {student_data['seating_no']}")
+    print(f"📊 Total Score: {student_data['total_degree']:.1f} / 410")
+    print(f"🏆 Rank: {rank:,} out of {total_students:,} students")
+    print(f"📈 Percentile: Top {100-percentile:.1f}% (Better than {percentile:.1f}% of students)")
+    
+    print(f"\n🎓 AVAILABLE UNIVERSITIES - الجامعات المتاحة")
+    print("-"*50)
+    
+    if available_unis:
+        print(f"🎉 Congratulations! You qualify for {len(available_unis)} university programs:")
+        for i, (uni, threshold) in enumerate(available_unis, 1):
+            excess = student_data['total_degree'] - threshold
+            print(f"{i:2d}. 🏛️  {uni:<12} (Required: {threshold:3}, Your excess: +{excess:.1f})")
+    else:
+        print("📚 Unfortunately, your score doesn't meet the minimum requirements")
+        print("    for the tracked university programs.")
+        print("    Consider private universities or technical institutes.")
+    
+    return True
+
 def analyze_data(df):
     """Perform comprehensive data analysis"""
     if df is None:
         return
     
-    # University thresholds
+    # University thresholds (out of 320)
     thresholds = {
-        'Medicine': 404,
-        'Pharmacy': 397, 
-        'Engineering': 382,
-        'Commerce': 340,
-        'Arts': 305
+        'Medicine': 315,      # طب
+        'Pharmacy': 310,      # صيدلة
+        'Engineering': 298,   # هندسة
+        'Commerce': 265,      # تجارة
+        'Arts': 238           # آداب
     }
     
     print("\n" + "="*70)
@@ -195,7 +243,7 @@ def create_visualizations(df, stats, threshold_data):
     # Histogram with thresholds
     ax3.hist(scores, bins=50, alpha=0.7, color='lightcoral', edgecolor='black')
     colors = ['red', 'orange', 'green', 'blue', 'purple']
-    thresholds = {'Medicine': 404, 'Pharmacy': 397, 'Engineering': 382, 'Commerce': 340, 'Arts': 305}
+    thresholds = {'Medicine': 315, 'Pharmacy': 310, 'Engineering': 298, 'Commerce': 265, 'Arts': 238}
     for i, (field, threshold) in enumerate(thresholds.items()):
         ax3.axvline(threshold, color=colors[i % len(colors)], linestyle='--', 
                    linewidth=2, label=f'{field}: {threshold}')
@@ -373,6 +421,19 @@ def main():
         print("   📄 analysis_report_[timestamp].txt")
         print("   📊 top_students.csv")
         print("="*70)
+        
+        # Interactive student search
+        print(f"\n🔍 STUDENT SEARCH FEATURE - البحث عن طالب")
+        print("="*50)
+        
+        while True:
+            student_id = input(f"\nEnter Student ID to search (or 'quit' to exit): ").strip()
+            
+            if student_id.lower() in ['quit', 'exit', 'q', '']:
+                break
+            
+            thresholds = {'Medicine': 315, 'Pharmacy': 310, 'Engineering': 298, 'Commerce': 265, 'Arts': 238}
+            search_student_by_id(df, student_id, thresholds)
     
     input("\nPress Enter to exit...")
 
