@@ -1,5 +1,5 @@
 pandas>=1.5.0
 matplotlib>=3.6.0
-seaborn>=0.12.0
 numpy>=1.24.0
-tkinter
+streamlit>=1.28.0
+plotly>=5.15.0

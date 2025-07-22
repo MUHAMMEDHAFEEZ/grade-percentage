@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Egyptian High School Results Analyzer - Streamlit Web App
-A modern web-based GUI for analyzing Egyptian high school student results
+Egyptian High School Results Analyzer - Streamlit Web App (Deployment Ready)
+Optimized for Streamlit Cloud deployment
 """
 
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
-from pathlib import Path
 import io
 from datetime import datetime
 import base64
@@ -24,15 +22,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Set matplotlib to use a safe backend for deployment
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend for deployment
-
-# Set matplotlib to use a readable font
-import matplotlib.pyplot as plt
-plt.rcParams['font.family'] = ['DejaVu Sans', 'Arial']
-plt.rcParams['axes.unicode_minus'] = False
 
 class StreamlitGradeAnalyzer:
     def __init__(self):
@@ -288,13 +277,6 @@ def create_threshold_analysis_plot(threshold_counts):
     fig.update_yaxes(title_text="Number of Students", row=1, col=1)
     
     return fig
-
-def create_download_link(df, filename):
-    """Create a download link for dataframe"""
-    csv = df.to_csv(index=False)
-    b64 = base64.b64encode(csv.encode()).decode()
-    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}">Download {filename}</a>'
-    return href
 
 def main():
     """Main Streamlit application"""
