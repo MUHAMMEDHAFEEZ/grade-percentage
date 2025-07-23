@@ -1,8 +1,5 @@
-# Core dependencies - optimized for performance
-pandas>=1.5.0,<2.0.0
-streamlit>=1.28.0,<2.0.0
-plotly>=5.15.0,<6.0.0
-numpy>=1.24.0,<2.0.0
-
-# Optional: Remove matplotlib if not needed for better performance
-# matplotlib>=3.6.0
+pandas>=1.5.0
+matplotlib>=3.6.0
+numpy>=1.24.0
+streamlit>=1.28.0
+plotly>=5.15.0

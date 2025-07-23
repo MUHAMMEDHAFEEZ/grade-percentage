@@ -15,9 +15,8 @@ import io
 import os
 from datetime import datetime
 import base64
-from functools import lru_cache
 
-# Configure page with performance optimizations
+# Configure page
 st.set_page_config(
     page_title="Egyptian High School Results Analyzer",
     page_icon="🎓",
@@ -25,179 +24,91 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Performance optimizations
-@st.cache_data(ttl=3600)  # Cache for 1 hour
-def load_default_data():
-    """Load default CSV data with caching"""
-    try:
-        default_file_path = "results.csv"
-        if os.path.exists(default_file_path):
-            # Try different delimiters
-            for delimiter in [',', '\t', ';']:
-                try:
-                    df = pd.read_csv(default_file_path, delimiter=delimiter, encoding='utf-8')
-                    if len(df.columns) >= 3:
-                        break
-                except:
-                    continue
-            else:
-                df = pd.read_csv(default_file_path, encoding='utf-8')
-            return df
-    except Exception as e:
-        st.error(f"Error loading default data: {str(e)}")
-        return None
-    return None
-
-@st.cache_data(ttl=1800)  # Cache for 30 minutes
-def process_csv_data(df):
-    """Process CSV data with caching"""
-    if df is None:
-        return None, False, "No data provided"
-    
-    try:
-        # Convert Arabic numerals in total_degree column
-        if 'total_degree' in df.columns:
-            def convert_arabic_numerals(text):
-                if pd.isna(text):
-                    return text
-                
-                arabic_to_english = {
-                    '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
-                    '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
-                    '٫': '.'
-                }
-                
-                result = str(text)
-                for arabic, english in arabic_to_english.items():
-                    result = result.replace(arabic, english)
-                
-                try:
-                    return float(result)
-                except (ValueError, TypeError):
-                    return text
-            
-            df['total_degree'] = df['total_degree'].apply(convert_arabic_numerals)
-            df['total_degree'] = pd.to_numeric(df['total_degree'], errors='coerce')
-            
-            # Remove rows with invalid grades
-            initial_count = len(df)
-            df = df.dropna(subset=['total_degree'])
-            df = df[df['total_degree'] > 0]
-            
-            return df, True, f"Successfully processed {len(df)} student records"
-    except Exception as e:
-        return None, False, f"Error processing data: {str(e)}"
-
-@st.cache_data(ttl=1800)  # Cache for 30 minutes  
-def calculate_statistics(df):
-    """Calculate statistics with caching"""
-    if df is not None and 'total_degree' in df.columns:
-        stats = {
-            'count': len(df),
-            'mean': df['total_degree'].mean(),
-            'median': df['total_degree'].median(),
-            'std': df['total_degree'].std(),
-            'min': df['total_degree'].min(),
-            'max': df['total_degree'].max(),
-            'q25': df['total_degree'].quantile(0.25),
-            'q75': df['total_degree'].quantile(0.75)
-        }
-        return stats
-    return {}
-
 class StreamlitGradeAnalyzer:
     def __init__(self):
-        # System-specific configurations (cached in session state)
-        if 'system_configs' not in st.session_state:
-            st.session_state.system_configs = {
-                'new_system': {
-                    'name': 'النظام الجديد (New System)',
-                    'name_en': 'New System',
-                    'total_score': 320,
-                    'years': [2025, 2024],
-                    'default_year': 2025,
-                    'thresholds': {
-                        2025: {
-                            'Medicine': 315,      # طب
-                            'Pharmacy': 310,      # صيدلة  
-                            'Engineering': 298,   # هندسة
-                            'Commerce': 265,      # تجارة
-                            'Arts': 238           # آداب
-                        },
-                        2024: {
-                            'Medicine': 312,
-                            'Pharmacy': 307,
-                            'Engineering': 295,
-                            'Commerce': 262,
-                            'Arts': 235
-                        }
+        # System-specific configurations
+        self.system_configs = {
+            'new_system': {
+                'name': 'النظام الجديد (New System)',
+                'name_en': 'New System',
+                'total_score': 320,
+                'years': [2025, 2024],
+                'default_year': 2025,
+                'thresholds': {
+                    2025: {
+                        'Medicine': 315,      # طب
+                        'Pharmacy': 310,      # صيدلة  
+                        'Engineering': 298,   # هندسة
+                        'Commerce': 265,      # تجارة
+                        'Arts': 238           # آداب
                     },
-                    'ranges': [(0, 150), (150, 200), (200, 240), (240, 270), (270, 300), (300, 315), (315, 320)],
-                    'grade_categories': {
-                        'ممتاز': (300, 320),
-                        'جيد جداً': (270, 300),
-                        'جيد': (240, 270),
-                        'مقبول': (200, 240),
-                        'ضعيف': (0, 200)
+                    2024: {
+                        'Medicine': 312,
+                        'Pharmacy': 307,
+                        'Engineering': 295,
+                        'Commerce': 262,
+                        'Arts': 235
                     }
                 },
-                'old_system': {
-                    'name': 'النظام القديم (Old System)',
-                    'name_en': 'Old System',
-                    'total_score': 410,
-                    'years': [2023, 2022, 2021, 2020],
-                    'default_year': 2023,
-                    'thresholds': {
-                        2023: {
-                            'Medicine': 404,
-                            'Pharmacy': 397,
-                            'Engineering': 382,
-                            'Commerce': 340,
-                            'Arts': 305
-                        },
-                        2022: {
-                            'Medicine': 401,
-                            'Pharmacy': 394,
-                            'Engineering': 379,
-                            'Commerce': 337,
-                            'Arts': 302
-                        },
-                        2021: {
-                            'Medicine': 398,
-                            'Pharmacy': 391,
-                            'Engineering': 376,
-                            'Commerce': 334,
-                            'Arts': 299
-                        },
-                        2020: {
-                            'Medicine': 395,
-                            'Pharmacy': 388,
-                            'Engineering': 373,
-                            'Commerce': 331,
-                            'Arts': 296
-                        }
+                'ranges': [(0, 150), (150, 200), (200, 240), (240, 270), (270, 300), (300, 315), (315, 320)],
+                'grade_categories': {
+                    'ممتاز': (300, 320),
+                    'جيد جداً': (270, 300),
+                    'جيد': (240, 270),
+                    'مقبول': (200, 240),
+                    'ضعيف': (0, 200)
+                }
+            },
+            'old_system': {
+                'name': 'النظام القديم (Old System)',
+                'name_en': 'Old System',
+                'total_score': 410,
+                'years': [2023, 2022, 2021, 2020],
+                'default_year': 2023,
+                'thresholds': {
+                    2023: {
+                        'Medicine': 404,
+                        'Pharmacy': 397,
+                        'Engineering': 382,
+                        'Commerce': 340,
+                        'Arts': 305
                     },
-                    'ranges': [(0, 200), (200, 250), (250, 300), (300, 350), (350, 380), (380, 400), (400, 410)],
-                    'grade_categories': {
-                        'ممتاز': (380, 410),
-                        'جيد جداً': (340, 380),
-                        'جيد': (300, 340),
-                        'مقبول': (250, 300),
-                        'ضعيف': (0, 250)
+                    2022: {
+                        'Medicine': 401,
+                        'Pharmacy': 394,
+                        'Engineering': 379,
+                        'Commerce': 337,
+                        'Arts': 302
+                    },
+                    2021: {
+                        'Medicine': 398,
+                        'Pharmacy': 391,
+                        'Engineering': 376,
+                        'Commerce': 334,
+                        'Arts': 299
+                    },
+                    2020: {
+                        'Medicine': 395,
+                        'Pharmacy': 388,
+                        'Engineering': 373,
+                        'Commerce': 331,
+                        'Arts': 296
                     }
+                },
+                'ranges': [(0, 200), (200, 250), (250, 300), (300, 350), (350, 380), (380, 400), (400, 410)],
+                'grade_categories': {
+                    'ممتاز': (380, 410),
+                    'جيد جداً': (340, 380),
+                    'جيد': (300, 340),
+                    'مقبول': (250, 300),
+                    'ضعيف': (0, 250)
                 }
             }
+        }
         
-        self.system_configs = st.session_state.system_configs
-        
-        # Initialize session state for current system settings
-        if 'current_system' not in st.session_state:
-            st.session_state.current_system = 'new_system'
-        if 'current_year' not in st.session_state:
-            st.session_state.current_year = self.system_configs['new_system']['default_year']
-        
-        self.current_system = st.session_state.current_system
-        self.current_year = st.session_state.current_year
+        # Default settings (New System)
+        self.current_system = 'new_system'
+        self.current_year = self.system_configs[self.current_system]['default_year']
         self.update_current_settings()
     
     def update_current_settings(self):
@@ -211,21 +122,18 @@ class StreamlitGradeAnalyzer:
         self.system_name_en = config['name_en']
     
     def set_system(self, system):
-        """Set the education system (new or old) with session state"""
+        """Set the education system (new or old)"""
         if system in self.system_configs:
             self.current_system = system
-            st.session_state.current_system = system
             self.current_year = self.system_configs[system]['default_year']
-            st.session_state.current_year = self.current_year
             self.update_current_settings()
             return True
         return False
     
     def set_year(self, year):
-        """Set the analysis year within current system with session state"""
+        """Set the analysis year within current system"""
         if year in self.system_configs[self.current_system]['years']:
             self.current_year = year
-            st.session_state.current_year = year
             self.update_current_settings()
             return True
         return False
@@ -241,22 +149,93 @@ class StreamlitGradeAnalyzer:
         """Get list of available years for current system"""
         return sorted(self.system_configs[self.current_system]['years'], reverse=True)
     
-    @lru_cache(maxsize=128)
     def get_grade_category(self, score):
-        """Get grade category for a score with caching"""
+        """Get grade category for a score"""
         for category, (min_score, max_score) in self.grade_categories.items():
             if min_score <= score < max_score:
                 return category
         return 'غير محدد'
+        
+    def convert_arabic_numerals(self, text):
+        """Convert Arabic numerals to English numerals"""
+        if pd.isna(text):
+            return text
+            
+        # Arabic to English digit mapping
+        arabic_to_english = {
+            '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+            '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+            '٫': '.'  # Arabic decimal separator
+        }
+        
+        result = str(text)
+        for arabic, english in arabic_to_english.items():
+            result = result.replace(arabic, english)
+        
+        try:
+            return float(result)
+        except (ValueError, TypeError):
+            return text
     
-    @st.cache_data(ttl=1800)
-    def get_threshold_counts(_self, df):
-        """Get count of students meeting each threshold with caching"""
+    def load_csv(self, uploaded_file):
+        """Load and process the uploaded CSV file"""
+        try:
+            # Try different delimiters
+            content = uploaded_file.getvalue().decode('utf-8')
+            
+            # Try different delimiters
+            for delimiter in [',', '\t', ';']:
+                try:
+                    df = pd.read_csv(io.StringIO(content), delimiter=delimiter)
+                    if len(df.columns) >= 3:
+                        break
+                except:
+                    continue
+            else:
+                # If no delimiter works, try auto-detection
+                df = pd.read_csv(io.StringIO(content))
+            
+            # Convert Arabic numerals in total_degree column
+            if 'total_degree' in df.columns:
+                df['total_degree'] = df['total_degree'].apply(self.convert_arabic_numerals)
+                df['total_degree'] = pd.to_numeric(df['total_degree'], errors='coerce')
+                
+                # Remove rows with invalid grades
+                initial_count = len(df)
+                df = df.dropna(subset=['total_degree'])
+                df = df[df['total_degree'] > 0]  # Remove zero or negative grades
+                
+                if len(df) < initial_count:
+                    st.warning(f"Removed {initial_count - len(df)} invalid records")
+                
+            return df, True, f"Successfully loaded {len(df)} student records"
+            
+        except Exception as e:
+            return None, False, f"Error loading file: {str(e)}"
+    
+    def calculate_statistics(self, df):
+        """Calculate basic statistics"""
+        if df is not None and 'total_degree' in df.columns:
+            stats = {
+                'count': len(df),
+                'mean': df['total_degree'].mean(),
+                'median': df['total_degree'].median(),
+                'std': df['total_degree'].std(),
+                'min': df['total_degree'].min(),
+                'max': df['total_degree'].max(),
+                'q25': df['total_degree'].quantile(0.25),
+                'q75': df['total_degree'].quantile(0.75)
+            }
+            return stats
+        return {}
+    
+    def get_threshold_counts(self, df):
+        """Get count of students meeting each threshold"""
         if df is None:
             return {}
             
         threshold_counts = {}
-        for field, threshold in _self.thresholds.items():
+        for field, threshold in self.thresholds.items():
             count = len(df[df['total_degree'] >= threshold])
             percentage = (count / len(df)) * 100
             threshold_counts[field] = {
@@ -266,17 +245,15 @@ class StreamlitGradeAnalyzer:
             }
         return threshold_counts
     
-    @st.cache_data(ttl=1800)
-    def get_top_students(_self, df, n=10):
-        """Get top N students with caching"""
+    def get_top_students(self, df, n=10):
+        """Get top N students"""
         if df is None:
             return pd.DataFrame()
         
         return df.nlargest(n, 'total_degree')[['seating_no', 'arabic_name', 'total_degree']]
     
-    @st.cache_data(ttl=900)  # Cache for 15 minutes
-    def search_student_by_id(_self, df, student_id):
-        """Search for a student by their seating number with caching"""
+    def search_student_by_id(self, df, student_id):
+        """Search for a student by their seating number (National ID)"""
         if df is None:
             return None, "No data loaded"
         
@@ -298,12 +275,12 @@ class StreamlitGradeAnalyzer:
         
         # Check available universities
         available_unis = []
-        for field, threshold in _self.thresholds.items():
+        for field, threshold in self.thresholds.items():
             if student_data['total_degree'] >= threshold:
                 available_unis.append(field)
         
         # Get grade category
-        grade_category = _self.get_grade_category(student_data['total_degree'])
+        grade_category = self.get_grade_category(student_data['total_degree'])
         
         result = {
             'seating_no': student_data['seating_no'],
@@ -314,15 +291,14 @@ class StreamlitGradeAnalyzer:
             'percentile': percentile,
             'available_universities': available_unis,
             'grade_category': grade_category,
-            'system': _self.system_name,
-            'year': _self.current_year
+            'system': self.system_name,
+            'year': self.current_year
         }
         
         return result, "Student found successfully"
 
-@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def create_distribution_plot(df, stats, thresholds):
-    """Create interactive distribution plot using Plotly with caching"""
+    """Create interactive distribution plot using Plotly"""
     
     # Create subplots
     fig = make_subplots(
@@ -401,9 +377,8 @@ def create_distribution_plot(df, stats, thresholds):
     
     return fig
 
-@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def create_top_students_plot(top_students):
-    """Create top students bar chart with caching"""
+    """Create top students bar chart"""
     fig = px.bar(
         top_students.iloc[::-1],  # Reverse order for top-to-bottom display
         x='total_degree',
@@ -432,9 +407,8 @@ def create_top_students_plot(top_students):
     
     return fig
 
-@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def create_threshold_analysis_plot(threshold_counts):
-    """Create threshold analysis plots with caching"""
+    """Create threshold analysis plots"""
     
     # Create subplots
     fig = make_subplots(
@@ -554,7 +528,7 @@ def main():
         help="Upload your Egyptian high school results CSV file or use default data"
     )
     
-    # Auto-load default data if no file uploaded with improved performance
+    # Auto-load default data if no file uploaded
     df = None
     success = False
     message = ""
@@ -562,45 +536,53 @@ def main():
     if uploaded_file is not None:
         # Load and process uploaded data
         with st.spinner('Loading uploaded file... جاري تحميل الملف المرفوع...'):
-            # Use cached processing function
-            try:
-                content = uploaded_file.getvalue().decode('utf-8')
-                
-                # Try different delimiters
-                for delimiter in [',', '\t', ';']:
-                    try:
-                        raw_df = pd.read_csv(io.StringIO(content), delimiter=delimiter)
-                        if len(raw_df.columns) >= 3:
-                            break
-                    except:
-                        continue
-                else:
-                    raw_df = pd.read_csv(io.StringIO(content))
-                
-                df, success, message = process_csv_data(raw_df)
-            except Exception as e:
-                success = False
-                message = f"❌ Error loading uploaded file: {str(e)}"
+            df, success, message = analyzer.load_csv(uploaded_file)
     else:
-        # Try to load default results.csv file with caching
-        with st.spinner('Loading default data... جاري تحميل البيانات الافتراضية...'):
-            raw_df = load_default_data()
-            if raw_df is not None:
-                df, success, message = process_csv_data(raw_df)
-                if success:
-                    st.sidebar.success("📊 Using cached default dataset")
+        # Try to load default results.csv file
+        try:
+            with st.spinner('Loading default data... جاري تحميل البيانات الافتراضية...'):
+                default_file_path = "results.csv"
+                if os.path.exists(default_file_path):
+                    # Read the default CSV file
+                    for delimiter in [',', '\t', ';']:
+                        try:
+                            df = pd.read_csv(default_file_path, delimiter=delimiter, encoding='utf-8')
+                            if len(df.columns) >= 3:
+                                break
+                        except:
+                            continue
+                    else:
+                        df = pd.read_csv(default_file_path, encoding='utf-8')
+                    
+                    # Process the data same as uploaded files
+                    if 'total_degree' in df.columns:
+                        df['total_degree'] = df['total_degree'].apply(analyzer.convert_arabic_numerals)
+                        df['total_degree'] = pd.to_numeric(df['total_degree'], errors='coerce')
+                        
+                        initial_count = len(df)
+                        df = df.dropna(subset=['total_degree'])
+                        df = df[df['total_degree'] > 0]
+                        
+                        if len(df) < initial_count:
+                            st.sidebar.warning(f"Removed {initial_count - len(df)} invalid records")
+                    
+                    success = True
+                    message = f"✅ Default data loaded: {len(df):,} student records"
+                    st.sidebar.success("📊 Using default dataset")
                 else:
-                    st.sidebar.error("❌ Error processing default data")
-            else:
-                success = False
-                message = "❌ Default results.csv file not found. Please upload a CSV file."
-                st.sidebar.error("📁 No default data available")
+                    success = False
+                    message = "❌ Default results.csv file not found. Please upload a CSV file."
+                    st.sidebar.error("📁 No default data available")
+        except Exception as e:
+            success = False
+            message = f"❌ Error loading default data: {str(e)}"
+            st.sidebar.error("❌ Error loading default data")
     
     if success and df is not None:
             st.success(message)
             
-            # Calculate statistics with caching
-            stats = calculate_statistics(df)
+            # Calculate statistics
+            stats = analyzer.calculate_statistics(df)
             threshold_counts = analyzer.get_threshold_counts(df)
             top_students = analyzer.get_top_students(df, 10)
             

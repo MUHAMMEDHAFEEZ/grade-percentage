@@ -5,34 +5,8 @@ secondaryBackgroundColor = "#F0F2F6"
 textColor = "#262730"
 
 [server]
-# Performance optimizations
 maxUploadSize = 200
-maxMessageSize = 200
-enableCORS = false
 enableXsrfProtection = false
-
-[browser]
-# Reduce resource usage
-gatherUsageStats = false
-
-[global]
-# Performance settings
-developmentMode = false
-logLevel = "warning"
-
-[runner]
-# Memory and performance optimizations
-magicEnabled = true
-installTracer = false
-fixMatplotlib = true
-postScriptGC = true
-fastReruns = true
-enforceSerializableSessionState = false
-
-[client]
-# Reduce network overhead
-showErrorDetails = false
-toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false
